@@ -1,0 +1,13 @@
+# For production apps, move secrets out of appsettings.json into:
+# appsettings.Development.json or environment variables (not committed)
+appsettings.Development.json
+appsettings.local.json
+
+# .NET build output
+bin/
+obj/
+
+# IDE
+.vs/
+*.user
+.idea/
