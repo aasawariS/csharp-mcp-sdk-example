@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>XaaDemo</RootNamespace>
+    <!-- Suppress CS0436: SdkStub.cs intentionally shadows the real SDK types to fix
+         a Uri trailing-slash issue with xaa.dev's IdP. -->
+    <NoWarn>CS0436</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ASP.NET Core OIDC middleware (Section 3: User Authentication) -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.0" />
+
+    <!-- MCP SDK — McpClient, HttpClientTransport, McpClientTool, CallToolResult -->
+    <PackageReference Include="ModelContextProtocol" Version="1.4.0" />
+
+  </ItemGroup>
+
+</Project>

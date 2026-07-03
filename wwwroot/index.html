@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Productivity Assistant</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f7;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+
+    /* ── LOGIN ─────────────────────────────────────────────────────────── */
+    #login-view{width:100%;min-height:100vh;background:linear-gradient(145deg,#3730a3 0%,#6d28d9 45%,#7c3aed 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem}
+    .login-topbar{position:absolute;top:0;left:0;right:0;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between}
+    .login-brand{color:rgba(255,255,255,.9);font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:7px}
+    .login-btn-top{background:transparent;border:1.5px solid rgba(255,255,255,.5);color:#fff;padding:.35rem .9rem;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s}
+    .login-btn-top:hover{background:rgba(255,255,255,.15)}
+
+    .login-hero{text-align:center;max-width:520px;padding:0 1rem}
+    .login-icon{font-size:3.5rem;margin-bottom:1.25rem;filter:drop-shadow(0 4px 12px rgba(0,0,0,.25))}
+    .login-title{font-size:2.4rem;font-weight:800;color:#fff;margin-bottom:.6rem;letter-spacing:-0.5px}
+    .login-sub{font-size:1.05rem;color:rgba(255,255,255,.78);margin-bottom:2rem;line-height:1.5}
+    .sso-btn{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.95);color:#4f46e5;padding:.8rem 1.8rem;border-radius:12px;font-size:.95rem;font-weight:700;cursor:pointer;text-decoration:none;box-shadow:0 4px 20px rgba(0,0,0,.2);transition:all .2s}
+    .sso-btn:hover{background:#fff;transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,0,0,.25)}
+
+    .features{display:flex;gap:2.5rem;margin-top:2.5rem;justify-content:center}
+    .feat{text-align:center;color:rgba(255,255,255,.85)}
+    .feat-icon{font-size:1.6rem;margin-bottom:.4rem}
+    .feat-label{font-size:.78rem;font-weight:600;letter-spacing:.3px}
+
+    /* ── APP SHELL ──────────────────────────────────────────────────────── */
+    #app-view{display:none;width:100%;max-width:960px;min-height:100vh;flex-direction:column}
+    #app-view.on{display:flex}
+
+    .topbar{background:#fff;border-bottom:1px solid #e5e7eb;padding:.7rem 1.25rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;border-radius:0}
+    .brand{font-size:.92rem;font-weight:800;color:#3730a3;display:flex;align-items:center;gap:7px}
+    .user-row{display:flex;align-items:center;gap:.6rem;font-size:.78rem;color:#6b7280}
+    .av{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:.65rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+    .so-btn{background:none;border:none;color:#9ca3af;cursor:pointer;font-size:.72rem;padding:2px 5px;border-radius:4px}
+    .so-btn:hover{color:#ef4444}
+
+    /* ── TWO-COLUMN LAYOUT ─────────────────────────────────────────────── */
+    .workspace{display:grid;grid-template-columns:220px 1fr;flex:1;gap:0}
+
+    /* Sidebar */
+    .sidebar{background:#1e1b4b;padding:.9rem;display:flex;flex-direction:column;gap:.6rem}
+    .btn-analyze{width:100%;padding:.6rem;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:background .2s}
+    .btn-analyze:hover:not(:disabled){background:#4f46e5}
+    .btn-analyze:disabled{background:#312e81;color:#6366f1;cursor:not-allowed}
+
+    .sb-label{font-size:.6rem;text-transform:uppercase;letter-spacing:1.5px;color:#4338ca;font-weight:700;margin:.3rem 0 .2rem;padding-left:.1rem}
+    .step{display:flex;gap:7px;align-items:flex-start;padding:.3rem .25rem;border-radius:5px;animation:fi .3s ease}
+    @keyframes fi{from{opacity:0;transform:translateY(3px)}to{opacity:1}}
+    .si{width:16px;height:16px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:8px;margin-top:1px}
+    .s-run{background:#1e3a5f;border:1.5px solid #6366f1;animation:pulse .9s infinite}
+    .s-ok{background:#065f46;border:1.5px solid #10b981;color:#10b981;font-size:9px}
+    .s-err{background:#450a0a;border:1.5px solid #ef4444;color:#ef4444;font-size:9px}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .sp{width:8px;height:8px;border:1.5px solid #1e3a5f;border-top-color:#6366f1;border-radius:50%;animation:spin .5s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .step-label{font-size:.72rem;color:#c7d2fe;font-weight:500;line-height:1.3}
+    .step-label.ok{color:#6ee7b7}.step-label.err{color:#fca5a5}
+    .step-detail{font-size:.63rem;color:#4338ca;margin-top:1px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .step-time{font-size:.6rem;color:#312e81;margin-top:1px}
+
+    .token-box{background:#12104a;border:1px solid #312e81;border-radius:6px;padding:.45rem .5rem;margin-top:.3rem}
+    .token-lbl{font-size:.58rem;text-transform:uppercase;letter-spacing:.5px;color:#6366f1;margin-bottom:2px;font-weight:700}
+    .token-val{font-size:.6rem;color:#818cf8;word-break:break-all;line-height:1.4}
+
+    /* Main area */
+    .main{background:#f8fafc;overflow-y:auto;display:flex;flex-direction:column}
+
+    .section{padding:.85rem 1rem;border-bottom:1px solid #e5e7eb}
+    .section:last-child{border-bottom:none;flex:1}
+    .sec-title{font-size:.78rem;font-weight:700;color:#1e293b;margin-bottom:.65rem;display:flex;align-items:center;gap:6px}
+    .count-chip{background:#ede9fe;color:#6d28d9;font-size:.65rem;padding:1px 7px;border-radius:10px;font-weight:600}
+
+    /* Analysis */
+    .ai-summary{font-size:.82rem;color:#374151;line-height:1.6;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.7rem .9rem;margin-bottom:.65rem}
+    .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:.65rem}
+    .stat{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:.55rem;text-align:center}
+    .stat-v{font-size:1.3rem;font-weight:800}
+    .stat-l{font-size:.6rem;color:#9ca3af;text-transform:uppercase;margin-top:1px}
+    .c-ind{color:#6366f1}.c-grn{color:#10b981}.c-red{color:#ef4444}.c-amb{color:#f59e0b}
+
+    .focus-list{display:flex;flex-direction:column;gap:.35rem}
+    .focus-item{display:flex;align-items:flex-start;gap:.5rem;font-size:.78rem;color:#374151;padding:.4rem .6rem;background:#fff;border-radius:7px;border-left:3px solid #6366f1}
+    .focus-n{font-size:.65rem;font-weight:700;color:#6366f1;flex-shrink:0;margin-top:1px}
+    .insights-list{display:flex;flex-direction:column;gap:.3rem;margin-top:.65rem}
+    .ins-row{display:flex;align-items:flex-start;gap:.5rem;font-size:.78rem;color:#374151;padding:.35rem 0;border-bottom:1px solid #f1f5f9}
+    .ins-row:last-child{border-bottom:none}
+
+    /* Todos */
+    .todo-item{display:flex;align-items:flex-start;gap:.6rem;padding:.55rem .7rem;border-radius:8px;background:#fff;border:1px solid transparent;margin-bottom:.35rem;transition:border .15s}
+    .todo-item:hover{border-color:#e5e7eb}
+    .todo-item.overdue{background:#fff8f8;border-color:#fecaca}
+    .todo-item.done{opacity:.5}
+    .pbar{width:3px;height:28px;border-radius:2px;flex-shrink:0;margin-top:2px}
+    .p1{background:#ef4444}.p2{background:#f59e0b}.p3{background:#10b981}.p0{background:#94a3b8}
+    .chk{width:15px;height:15px;border-radius:3px;border:1.5px solid #d1d5db;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:8px}
+    .chk.done{background:#10b981;border-color:#10b981;color:#fff}
+    .td-body{flex:1;min-width:0}
+    .td-title{font-size:.82rem;font-weight:500;color:#111827;line-height:1.35}
+    .td-title.done{text-decoration:line-through;color:#9ca3af}
+    .td-desc{font-size:.7rem;color:#9ca3af;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .td-chips{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.25rem}
+    .chip{font-size:.6rem;padding:1px 6px;border-radius:5px;background:#f3f4f6;color:#6b7280}
+    .chip-pri-high{background:#fef2f2;color:#dc2626;font-weight:700}
+    .chip-pri-medium{background:#fefce8;color:#d97706;font-weight:700}
+    .chip-pri-low{background:#f0fdf4;color:#16a34a;font-weight:700}
+    .chip-overdue{background:#fee2e2;color:#dc2626;font-weight:700}
+    .chip-today{background:#fef3c7;color:#d97706;font-weight:700}
+    .chip-soon{background:#ecfdf5;color:#059669}
+
+    .placeholder{text-align:center;padding:2rem 1rem;color:#9ca3af;font-size:.82rem}
+    .placeholder strong{display:block;color:#6b7280;margin-bottom:.3rem;font-size:.88rem}
+
+    .raw-section{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:.5rem .65rem;font-size:.65rem;font-family:monospace;color:#475569;white-space:pre-wrap;word-break:break-all;max-height:80px;overflow-y:auto;margin-top:.5rem}
+  </style>
+</head>
+<body>
+
+<!-- ── LOGIN ──────────────────────────────────────────────────────────────── -->
+<div id="login-view">
+  <div class="login-topbar">
+    <div class="login-brand">🤖 AI Productivity Assistant</div>
+    <a class="login-btn-top" href="/login">Log In</a>
+  </div>
+  <div class="login-hero">
+    <div class="login-icon">🤖</div>
+    <h1 class="login-title">AI Productivity Assistant</h1>
+    <p class="login-sub">Your tasks, secured by enterprise Cross App Access.<br>No consent screens. No manual setup.</p>
+    <a class="sso-btn" href="/login">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      Continue with Enterprise SSO
+    </a>
+    <div class="features">
+      <div class="feat"><div class="feat-icon">🔐</div><div class="feat-label">XAA Auth</div></div>
+      <div class="feat"><div class="feat-icon">⚡</div><div class="feat-label">MCP Protocol</div></div>
+      <div class="feat"><div class="feat-icon">🤖</div><div class="feat-label">AI Analysis</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── APP ────────────────────────────────────────────────────────────────── -->
+<div id="app-view">
+
+  <div class="topbar">
+    <div class="brand">🤖 AI Productivity Assistant</div>
+    <div id="user-area" style="display:none" class="user-row">
+      <div class="av" id="avatar">U</div>
+      <span id="user-email"></span>
+      <button class="so-btn" onclick="window.location.href='/logout'">Sign out</button>
+    </div>
+  </div>
+
+  <div class="workspace">
+
+    <!-- Sidebar: XAA Auth Flow -->
+    <div class="sidebar">
+      <button class="btn-analyze" id="analyzeBtn" onclick="runFlow()">▶ Analyze My Todos</button>
+      <div class="sb-label">XAA Auth Flow</div>
+      <div id="step-list">
+        <div class="step"><div class="step-detail" style="color:#312e81">Click to start</div></div>
+      </div>
+      <div id="token-area"></div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+
+      <!-- Analysis -->
+      <div class="section" id="analysis-section">
+        <div class="placeholder" id="analysis-ph"><strong>AI Analysis</strong>Click "Analyze My Todos" to run the XAA flow and get insights.</div>
+
+        <div id="analysis-content" style="display:none">
+          <div class="ai-summary" id="ai-summary"></div>
+          <div class="stats-row">
+            <div class="stat"><div class="stat-v c-ind" id="s-total">—</div><div class="stat-l">Total</div></div>
+            <div class="stat"><div class="stat-v c-grn" id="s-done">—</div><div class="stat-l">Done</div></div>
+            <div class="stat"><div class="stat-v c-red" id="s-p1">—</div><div class="stat-l">High Pri</div></div>
+            <div class="stat"><div class="stat-v c-amb" id="s-over">—</div><div class="stat-l">Overdue</div></div>
+          </div>
+          <div class="sec-title" style="font-size:.72rem;margin-bottom:.4rem">🎯 Today's Focus</div>
+          <div class="focus-list" id="focus-list"></div>
+          <div class="insights-list" id="insights-list"></div>
+        </div>
+      </div>
+
+      <!-- Todos -->
+      <div class="section">
+        <div class="sec-title">
+          ✅ Tasks
+          <span class="count-chip" id="todo-count"></span>
+        </div>
+        <div id="todo-list">
+          <div class="placeholder"><strong>No tasks loaded</strong>Tasks from the xaa.dev MCP Server appear here.</div>
+        </div>
+        <div id="raw-area"></div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /workspace -->
+</div><!-- /app -->
+
+<script>
+// ── Init ────────────────────────────────────────────────────────────────────
+async function init() {
+  const { loggedIn, email } = await fetch('/api/user').then(r => r.json());
+  if (loggedIn) {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-view').className = 'on';
+    document.getElementById('user-area').style.display = 'flex';
+    document.getElementById('user-email').textContent = email;
+    document.getElementById('avatar').textContent = email[0].toUpperCase();
+    if (new URLSearchParams(location.search).get('autorun') === 'true') {
+      history.replaceState({}, '', '/'); runFlow();
+    }
+  }
+}
+init();
+
+// ── Journey helpers ──────────────────────────────────────────────────────────
+let activeEl = null;
+function clearSteps() { document.getElementById('step-list').innerHTML=''; document.getElementById('token-area').innerHTML=''; activeEl=null; }
+function addStep(label) {
+  const d=document.createElement('div'); d.className='step';
+  d.innerHTML='<div class="si s-run"><div class="sp"></div></div><div><div class="step-label">'+label+'</div><div class="step-detail"></div><div class="step-time"></div></div>';
+  document.getElementById('step-list').appendChild(d); d.scrollIntoView({block:'nearest'}); activeEl=d;
+}
+function setDetail(t){if(activeEl) activeEl.querySelector('.step-detail').textContent=t;}
+function completeStep(msg,time){
+  if(!activeEl)return;
+  activeEl.querySelector('.si').className='si s-ok'; activeEl.querySelector('.si').textContent='✓';
+  activeEl.querySelector('.step-label').className='step-label ok';
+  if(msg) activeEl.querySelector('.step-detail').textContent=msg;
+  if(time) activeEl.querySelector('.step-time').textContent=time+'ms';
+  activeEl=null;
+}
+function failStep(msg){
+  if(!activeEl)return;
+  activeEl.querySelector('.si').className='si s-err'; activeEl.querySelector('.si').textContent='✕';
+  activeEl.querySelector('.step-label').className='step-label err';
+  activeEl.querySelector('.step-label').textContent=msg; activeEl=null;
+}
+
+// ── Run flow ─────────────────────────────────────────────────────────────────
+function runFlow() {
+  const btn=document.getElementById('analyzeBtn');
+  btn.disabled=true; btn.textContent='⏳ Analyzing…';
+  clearSteps();
+  document.getElementById('analysis-ph').style.display='block';
+  document.getElementById('analysis-content').style.display='none';
+  document.getElementById('raw-area').innerHTML='';
+
+  const es=new EventSource('/api/flow');
+  es.addEventListener('step',    e=>addStep(e.data));
+  es.addEventListener('detail',  e=>setDetail(e.data));
+  es.addEventListener('success', e=>{ const [m,t]=e.data.split('|'); completeStep(m,t); });
+  es.addEventListener('error',   e=>failStep(e.data));
+  es.addEventListener('token', e=>{
+    document.getElementById('token-area').innerHTML=
+      '<div class="token-box"><div class="token-lbl">Access Token</div><div class="token-val">'+e.data+'…</div></div>';
+  });
+  es.addEventListener('claims', e=>{
+    const c=JSON.parse(e.data);
+    const row=(label,val)=>'<div style="display:flex;justify-content:space-between;gap:.5rem;margin-top:3px"><span style="color:#4338ca;font-size:.58rem;flex-shrink:0">'+label+'</span><span style="color:#818cf8;font-size:.6rem;text-align:right;word-break:break-all">'+val+'</span></div>';
+    const prev=document.getElementById('token-area').innerHTML;
+    document.getElementById('token-area').innerHTML=prev+
+      '<div class="token-box" style="margin-top:.35rem">'+
+        '<div class="token-lbl">Token Claims (proof from xaa.dev)</div>'+
+        row('iss',c.iss||'—')+
+        row('aud',c.aud||'—')+
+        row('sub',c.sub||'—')+
+      '</div>';
+  });
+  es.addEventListener('data', e=>{
+    const d=JSON.parse(e.data);
+    renderAnalysis(d.insights||{}, d.todos||[]);
+    renderTodos(d.todos||[], d.resources||[], d.rawContent||'');
+  });
+  es.addEventListener('done', ()=>{ es.close(); btn.disabled=false; btn.textContent='↺ Re-analyze'; });
+  es.onerror=()=>{ es.close(); btn.disabled=false; btn.textContent='▶ Analyze My Todos'; };
+}
+
+// ── Render analysis ──────────────────────────────────────────────────────────
+function renderAnalysis(ins, todos) {
+  document.getElementById('analysis-ph').style.display='none';
+  document.getElementById('analysis-content').style.display='block';
+  document.getElementById('s-total').textContent=ins.totalCount||todos.length;
+  document.getElementById('s-done').textContent=ins.completedCount||0;
+  document.getElementById('s-p1').textContent=ins.p1Open||0;
+  document.getElementById('s-over').textContent=ins.overdueCount||0;
+  document.getElementById('ai-summary').textContent=ins.summary||'';
+  const fl=document.getElementById('focus-list');
+  fl.innerHTML=(ins.todaysFocus||[]).map((t,i)=>'<div class="focus-item"><span class="focus-n">'+(i+1)+'</span>'+t+'</div>').join('');
+  const il=document.getElementById('insights-list');
+  il.innerHTML=(ins.items||[]).map(i=>'<div class="ins-row"><span style="flex-shrink:0">'+i.icon+'</span><span>'+i.text+'</span></div>').join('');
+}
+
+// ── Render todos ─────────────────────────────────────────────────────────────
+function renderTodos(todos, resources, raw) {
+  const cnt=todos.length;
+  document.getElementById('todo-count').textContent=cnt+(cnt===1?' task':' tasks');
+  if(!cnt){
+    document.getElementById('todo-list').innerHTML='<div class="placeholder"><strong>No tasks</strong>The MCP server returned no todos.</div>';
+    if(raw) document.getElementById('raw-area').innerHTML='<div class="raw-section">'+raw+'</div>';
+    return;
+  }
+  function priNum(p){return {high:1,medium:2,low:3}[(p||'').toLowerCase()]||2;}
+  todos.sort((a,b)=>(a.completed?1:0)-(b.completed?1:0)||priNum(a.priority)-priNum(b.priority));
+  const now=new Date();
+  const html=todos.map(function(t){
+    const due=t.dueDate?new Date(t.dueDate):null;
+    const days=due?Math.ceil((due-now)/86400000):null;
+    const isOver=due&&!t.completed&&days<0;
+    const isToday=days===0&&!t.completed;
+    const isSoon=days!==null&&days>0&&days<=3&&!t.completed;
+    const cls='todo-item'+(t.completed?' done':'')+(isOver?' overdue':'');
+    const priMap={high:'p1',medium:'p2',low:'p3'};
+    const priCls=priMap[(t.priority||'').toLowerCase()]||'p0';
+    const priLabel={high:'🔴 High',medium:'🟡 Medium',low:'🟢 Low'}[(t.priority||'').toLowerCase()]||'';
+    let chips=priLabel?'<span class="chip chip-pri-'+(t.priority||'').toLowerCase()+'">'+priLabel+'</span>':'';
+    chips+=(t.tags||[]).map(function(tg){return'<span class="chip">#'+tg+'</span>';}).join('');
+    if(isOver) chips+='<span class="chip chip-overdue">Overdue</span>';
+    if(isToday) chips+='<span class="chip chip-today">Due today</span>';
+    if(isSoon)  chips+='<span class="chip chip-soon">Due in '+days+'d</span>';
+    return '<div class="'+cls+'">'
+      +'<div class="pbar '+priCls+'"></div>'
+      +'<div class="chk '+(t.completed?'done':'')+'"> '+(t.completed?'✓':'')+'</div>'
+      +'<div class="td-body">'
+        +'<div class="td-title '+(t.completed?'done':'')+'">'+(t.title||'')+'</div>'
+        +(t.description?'<div class="td-desc">'+t.description+'</div>':'')
+        +(chips?'<div class="td-chips">'+chips+'</div>':'')
+      +'</div></div>';
+  }).join('');
+  document.getElementById('todo-list').innerHTML=html;
+}
+</script>
+</body>
+</html>
