@@ -8,9 +8,6 @@ using XaaDemo.Services;
 var builder = WebApplication.CreateBuilder(args);
 var config  = builder.Configuration;
 
-// ── Authentication ─────────────────────────────────────────────────────────
-// ASP.NET Core OIDC middleware handles Section 3 (User Authentication):
-// PKCE, code exchange, ID Token storage — zero manual implementation.
 builder.Services
     .AddAuthentication(o =>
     {
@@ -25,18 +22,17 @@ builder.Services
         o.ClientSecret          = config["Xaa:ClientSecret"];
         o.ResponseType          = "code";
         o.UsePkce               = true;
-        o.SaveTokens            = true;   // id_token stored in encrypted auth cookie
+        o.SaveTokens            = true;
         o.CallbackPath          = "/callback";
         o.SignedOutCallbackPath = "/logged-out";
         o.SignedOutRedirectUri  = "http://localhost:5000";
-        o.MapInboundClaims = false;   // keep original claim names (email, sub, name) not MS schema
+        o.MapInboundClaims = false;
         o.Scope.Clear();
         o.Scope.Add("openid");
         o.Scope.Add("email");
         o.Scope.Add("profile");
         o.Events = new OpenIdConnectEvents
         {
-            // Session cookie only — cleared when browser closes / server restarts
             OnTokenValidated = ctx => { ctx.Properties!.IsPersistent = false; return Task.CompletedTask; }
         };
     });
@@ -54,9 +50,7 @@ app.UseStaticFiles();
 
 var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-// ── Login / Logout ─────────────────────────────────────────────────────────
-// If a user is already signed in and someone clicks "Sign In", sign them out first.
-// This ensures a different user can authenticate with their own identity.
+// Sign out any existing session before challenging — lets a different user authenticate.
 app.MapGet("/login", async (HttpContext ctx) =>
 {
     if (ctx.User.Identity?.IsAuthenticated == true)
@@ -76,7 +70,6 @@ app.MapGet("/logout", () =>
         new AuthenticationProperties { RedirectUri = "/" },
         [CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme]));
 
-// ── Session check ──────────────────────────────────────────────────────────
 app.MapGet("/api/user", (HttpContext ctx) =>
 {
     if (ctx.User.Identity?.IsAuthenticated != true)
@@ -89,7 +82,6 @@ app.MapGet("/api/user", (HttpContext ctx) =>
     return Results.Json(new { loggedIn = true, email });
 });
 
-// ── Main XAA flow — Server-Sent Events ────────────────────────────────────
 app.MapGet("/api/flow", async (HttpContext ctx, XaaService xaa, McpTodoService mcpTodos) =>
 {
     if (ctx.User.Identity?.IsAuthenticated != true) { ctx.Response.StatusCode = 401; return; }
@@ -111,17 +103,11 @@ app.MapGet("/api/flow", async (HttpContext ctx, XaaService xaa, McpTodoService m
     var sw = Stopwatch.StartNew();
     try
     {
-        // ── Step 1: User Authentication (OIDC) ────────────────────────
-        // Already done — OIDC middleware handled the login before this request.
-        // The ID Token is stored in the encrypted auth cookie by SaveTokens = true.
         await Send("step",    "Step 1 — User Login (OIDC)");
         await Send("detail",  "ASP.NET Core OIDC middleware completed login at https://idp.xaa.dev");
         await Send("detail",  "PKCE code exchange → ID Token stored in encrypted auth cookie");
         await Send("success", "ID Token obtained from session|0");
 
-        // ── Step 2: Token Exchange — ID Token → ID-JAG (RFC 8693) ─────
-        // Send the ID Token to the IdP. The IdP evaluates enterprise policy
-        // and returns a signed Identity Assertion (ID-JAG) if access is granted.
         var s2 = Stopwatch.StartNew();
         await Send("step",    "Step 2 — Token Exchange (RFC 8693)");
         await Send("detail",  $"POST {config["Xaa:IdpBaseUrl"]}/token");
@@ -131,10 +117,6 @@ app.MapGet("/api/flow", async (HttpContext ctx, XaaService xaa, McpTodoService m
         s2.Stop();
         await Send("success", $"ID-JAG assertion issued by IdP|{s2.ElapsedMilliseconds}");
 
-        // ── Step 3: Access Token Request — ID-JAG → Bearer Token (RFC 7523)
-        // Present the ID-JAG to the Resource Authorization Server.
-        // It validates the JWT signature and issues a scoped Bearer token
-        // with audience = https://mcp.xaa.dev/mcp.
         var s3 = Stopwatch.StartNew();
         await Send("step",    "Step 3 — Access Token Request (RFC 7523)");
         await Send("detail",  $"POST {config["Xaa:AuthServerUrl"]}/token");
@@ -143,9 +125,6 @@ app.MapGet("/api/flow", async (HttpContext ctx, XaaService xaa, McpTodoService m
         await Send("success", $"Bearer token issued (aud: mcp.xaa.dev/mcp)|{s3.ElapsedMilliseconds}");
         await Send("token",   accessToken[..Math.Min(50, accessToken.Length)]);
 
-        // Decode the JWT payload (no signature check needed — just for display)
-        // so the UI can show issuer, audience and subject as proof this token
-        // was issued by xaa.dev's Resource Authorization Server.
         try
         {
             var parts   = accessToken.Split('.');
@@ -157,11 +136,8 @@ app.MapGet("/api/flow", async (HttpContext ctx, XaaService xaa, McpTodoService m
             var sub = payload.RootElement.TryGetProperty("sub", out var s) ? s.GetString() : null;
             await Send("claims", System.Text.Json.JsonSerializer.Serialize(new { iss, aud, sub }, jsonOpts));
         }
-        catch { /* non-fatal — token display is optional */ }
+        catch { /* non-fatal */ }
 
-        // ── Step 4: Connect to MCP Server + Read Resources ────────────
-        // Create HttpClientTransport with the Bearer token in AdditionalHeaders.
-        // The MCP server exposes resources (not tools): todo0://todos etc.
         var s4 = Stopwatch.StartNew();
         await Send("step",    "Step 4 — MCP Server (Streamable HTTP)");
         await Send("detail",  $"HttpClientTransport (StreamableHttp) → {config["Xaa:McpServerUrl"]}");
@@ -194,8 +170,6 @@ app.MapGet("/api/flow", async (HttpContext ctx, XaaService xaa, McpTodoService m
 
 app.Run();
 
-// ── Analysis ───────────────────────────────────────────────────────────────
-// Map priority string → sort order: "high"=1, "medium"=2, "low"=3
 static int PriNum(string? p) => (p?.ToLower()) switch { "high" => 1, "medium" => 2, "low" => 3, _ => 2 };
 
 static object BuildInsights(List<TodoItem> todos)

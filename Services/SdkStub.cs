@@ -1,14 +1,7 @@
-// ── SDK STUB — IdentityAssertionGrantProvider ─────────────────────────────
-// The real IdentityAssertionGrantProvider ships in ModelContextProtocol 1.4.0
-// but has a URL normalization issue: C# Uri always adds a trailing slash to
-// bare hostnames (https://auth.resource.xaa.dev → https://auth.resource.xaa.dev/)
-// which causes xaa.dev's IdP to return invalid_target on an exact-string match.
-//
-// This stub mirrors the documented SDK API exactly and trims trailing slashes
-// so the audience value matches what xaa.dev expects.
-//
+// Stub for IdentityAssertionGrantProvider — mirrors the SDK API from ModelContextProtocol 1.4.0.
+// TrimEnd('/') on audience/resource values is required: xaa.dev IdP does exact-string matching
+// and C# Uri normalizes bare hostnames with a trailing slash.
 // Replace with the real package once the SDK handles this edge case.
-// ─────────────────────────────────────────────────────────────────────────────
 
 namespace ModelContextProtocol.Authentication;
 
@@ -38,17 +31,12 @@ public class IdentityAssertionGrantProvider
     public IdentityAssertionGrantProvider(
         IdentityAssertionGrantProviderOptions opts,
         HttpClient http,
-        ILoggerFactory? _ = null)   
+        ILoggerFactory? _ = null)
     {
         _opts = opts;
         _http = http;
     }
 
-    /// <summary>
-    /// Executes the two-step XAA token flow:
-    ///   Step 2 (RFC 8693): ID Token → ID-JAG at the IdP
-    ///   Step 3 (RFC 7523): ID-JAG  → Access Token at the Resource Auth Server
-    /// </summary>
     public async Task<TokenContainer> GetAccessTokenAsync(
         Uri resourceUrl,
         Uri authorizationServerUrl,
@@ -64,7 +52,6 @@ public class IdentityAssertionGrantProvider
 
     public void InvalidateCache() => _cached = null;
 
-    // ── RFC 8693 Token Exchange: ID Token → ID-JAG ────────────────────────
     private async Task<string> ExchangeForJag(
         string idToken, Uri resourceUrl, Uri authServerUrl, CancellationToken ct)
     {
@@ -74,12 +61,11 @@ public class IdentityAssertionGrantProvider
             ["requested_token_type"] = "urn:ietf:params:oauth:token-type:id-jag",
             ["subject_token"]        = idToken,
             ["subject_token_type"]   = "urn:ietf:params:oauth:token-type:id_token",
-            // TrimEnd('/') is critical — xaa.dev IdP does exact-string match on audience
             ["audience"]             = authServerUrl.ToString().TrimEnd('/'),
             ["resource"]             = resourceUrl.ToString().TrimEnd('/'),
             ["client_id"]            = _opts.IdpClientId,
         };
-        if (_opts.Scope          is not null) fields["scope"]         = _opts.Scope;
+        if (_opts.Scope           is not null) fields["scope"]         = _opts.Scope;
         if (_opts.IdpClientSecret is not null) fields["client_secret"] = _opts.IdpClientSecret;
 
         var res  = await _http.PostAsync(_opts.IdpTokenEndpoint, new FormUrlEncodedContent(fields), ct);
@@ -98,7 +84,6 @@ public class IdentityAssertionGrantProvider
         return root.GetProperty("access_token").GetString()!;
     }
 
-    // ── RFC 7523 JWT Bearer Grant: ID-JAG → Access Token ─────────────────
     private async Task<TokenContainer> RequestAccessToken(
         string jag, Uri authServerUrl, CancellationToken ct)
     {
@@ -109,8 +94,8 @@ public class IdentityAssertionGrantProvider
             ["assertion"]  = jag,
             ["client_id"]  = _opts.ClientId,
         };
-        if (_opts.Scope         is not null) fields["scope"]         = _opts.Scope;
-        if (_opts.ClientSecret  is not null) fields["client_secret"] = _opts.ClientSecret;
+        if (_opts.Scope        is not null) fields["scope"]         = _opts.Scope;
+        if (_opts.ClientSecret is not null) fields["client_secret"] = _opts.ClientSecret;
 
         var res  = await _http.PostAsync(tokenEndpoint, new FormUrlEncodedContent(fields), ct);
         var body = await res.Content.ReadAsStringAsync(ct);
