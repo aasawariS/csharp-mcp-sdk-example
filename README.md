@@ -4,6 +4,8 @@ A C# ASP.NET Core web app demonstrating **Cross-App Access (XAA)** using the [MC
 
 In this example, the C# app is a requester app that fetches the To-Do list from the ToDo app and analyzes the tasks fetched.
 
+Please read [Build a Secure C# MCP App with Cross-App Access (XAA)](https://example.com) to see how you can use Okta to secure your MCP server and implement Cross-App Access in a C# ASP.NET Core application.
+
 ---
 
 ## Understanding the Cross-App Access flow
@@ -91,3 +93,6 @@ Open [http://localhost:5000](http://localhost:5000), sign in with a xaa.dev test
 The access token displayed in the sidebar after the flow runs is a real JWT issued by `https://auth.resource.xaa.dev`. The decoded claims (`iss`, `aud`, `sub`) are shown in the **Token Claims** chip — `iss = https://auth.resource.xaa.dev` confirms the token came from xaa.dev's authorization server, not mock data.
 
 To see server-side logs: go to [xaa.dev/inspect?tab=mcp-server](https://xaa.dev/inspect?tab=mcp-server), paste the `sub` value from the Token Claims chip into the filter, then re-run the analysis.
+
+## License
+Apache 2.0 - see [LICENSE](LICENSE)
